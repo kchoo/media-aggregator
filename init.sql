@@ -21,14 +21,14 @@ CREATE TABLE sites (
 	identifier_validation_regex text NOT NULL
 );
 
-INSERT INTO sites (name, base_media_url) VALUES ('twitter', 'http://pbs.twimg.com/');
+INSERT INTO sites (name, base_media_url, identifier_validation_regex) VALUES ('twitter', 'http://pbs.twimg.com/', '/\d{,19}/');
 
 CREATE TABLE source_states (
 	id smallserial NOT NULL PRIMARY KEY,
 	name text NOT NULL
 );
 
-INSERT INTO source_states (name) VALUES ('pending', 'populating', 'standby', 'refreshing', 'inactive');
+INSERT INTO source_states (name) VALUES ('pending'), ('populating'), ('standby'), ('refreshing'), ('inactive');
 
 CREATE TABLE sources (
 	id serial NOT NULL PRIMARY KEY,
@@ -41,8 +41,8 @@ CREATE TABLE sources (
 	last_refreshed timestamp,
 	num_images uint NOT NULL DEFAULT 0,
 	num_votes uint NOT NULL DEFAULT 0,
-	num_approved uint NOT NULL DEFAULT 0
-	-- velocity?
+	num_approved uint NOT NULL DEFAULT 0,
+	position_points json NOT NULL DEFAULT '[]'::json
 );
 
 -- partial index to be used when looking for sources to refresh (only sources on standby get refreshed)
@@ -65,7 +65,6 @@ CREATE TABLE images (
 	num_approved uint NOT NULL DEFAULT 0,
 	-- md5 hash of the image, to check for duplicate images
 	md5 uuid,
-	position_points json NOT NULL DEFAULT '[]'::json,
 
 	UNIQUE (source_id, source_url)
 );
