@@ -17,18 +17,17 @@ CREATE TABLE sites (
 	base_media_url url NOT NULL UNIQUE,
 	num_images uint NOT NULL DEFAULT 0,
 	num_votes uint NOT NULL DEFAULT 0,
-	num_approved uint NOT NULL DEFAULT 0,
-	identifier_validation_regex text NOT NULL
+	num_approved uint NOT NULL DEFAULT 0
 );
 
-INSERT INTO sites (name, base_media_url, identifier_validation_regex) VALUES ('twitter', 'http://pbs.twimg.com/', '/\d{,19}/');
+INSERT INTO sites (name, base_media_url) VALUES ('twitter', 'http://pbs.twimg.com/');
 
 CREATE TABLE source_states (
 	id smallserial NOT NULL PRIMARY KEY,
 	name text NOT NULL
 );
 
-INSERT INTO source_states (name) VALUES ('pending'), ('populating'), ('standby'), ('refreshing'), ('inactive');
+INSERT INTO source_states (name) VALUES ('pending'), ('populating'), ('standby'), ('refreshing'), ('inactive'), ('error');
 
 CREATE TABLE sources (
 	id serial NOT NULL PRIMARY KEY,
@@ -36,7 +35,8 @@ CREATE TABLE sources (
 	state smallint NOT NULL REFERENCES source_states(id),
 	-- the unique id we use to query for stuff from this source
 	remote_identifier text NOT NULL UNIQUE,
-	last_processed_id text,
+	latest_processed_id text,
+	earliest_processed_id text,
 	-- last time this source was refreshed
 	last_refreshed timestamp,
 	num_images uint NOT NULL DEFAULT 0,
