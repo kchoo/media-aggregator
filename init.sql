@@ -17,10 +17,11 @@ CREATE TABLE sites (
 	base_media_url url NOT NULL UNIQUE,
 	num_images uint NOT NULL DEFAULT 0,
 	num_votes uint NOT NULL DEFAULT 0,
-	num_approved uint NOT NULL DEFAULT 0
+	num_approved uint NOT NULL DEFAULT 0,
+	identifier_validation_regex text NOT NULL
 );
 
-INSERT INTO sites (name, base_media_url) VALUES ('twitter', 'http://pbs.twimg.com/');
+INSERT INTO sites (name, base_media_url, identifier_validation_regex) VALUES ('twitter', 'http://pbs.twimg.com/', '/\d{,19}/');
 
 CREATE TABLE source_states (
 	id smallserial NOT NULL PRIMARY KEY,
@@ -35,8 +36,8 @@ CREATE TABLE sources (
 	state smallint NOT NULL REFERENCES source_states(id),
 	-- the unique id we use to query for stuff from this source
 	remote_identifier text NOT NULL UNIQUE,
-	latest_processed_id text,
 	earliest_processed_id text,
+	latest_processed_id text,
 	-- last time this source was refreshed
 	last_refreshed timestamp,
 	num_images uint NOT NULL DEFAULT 0,
@@ -44,6 +45,8 @@ CREATE TABLE sources (
 	num_approved uint NOT NULL DEFAULT 0,
 	position_points json NOT NULL DEFAULT '[]'::json
 );
+
+INSERT INTO sources (site_id, state, remote_identifier) VALUES (1, 1, '759251');
 
 -- partial index to be used when looking for sources to refresh (only sources on standby get refreshed)
 CREATE INDEX ON sources(last_refreshed) WHERE last_refreshed IS NOT NULL AND state = 2;
@@ -111,30 +114,34 @@ CREATE FUNCTION update_num_images() RETURNS TRIGGER AS $$
 	DECLARE
 		change_amount integer;
 		site_id integer;
+		image images;
 	BEGIN
+
+		IF (TG_OP = 'DELETE') THEN
+			change_amount := -1;
+			image = OLD;
+		ELSE
+			change_amount := 1;
+			image = NEW;
+		END IF;
+
 		site_id := (
 			SELECT sites.id
 				FROM sites
 				JOIN sources
 					ON sources.site_id = sites.id
-				WHERE sources.id = NEW.source_id
+				WHERE sources.id = image.source_id
 		);
-
-		IF (TG_OP = 'DELETE') THEN
-			change_amount := -1;
-		ELSE
-			change_amount := 1;
-		END IF;
 
 		UPDATE sources
 			SET num_images = num_images + change_amount
-			WHERE id = NEW.source_id;
+			WHERE id = image.source_id;
 
 		UPDATE sites
 			SET num_images = num_images + change_amount
 			WHERE id = site_id;
 
-		RETURN NEW;
+		RETURN image;
 	END;
 $$ LANGUAGE PLPGSQL;
 
@@ -261,3 +268,4 @@ CREATE TRIGGER raise_error_on_num_modification
 	FOR EACH ROW
 	WHEN (pg_trigger_depth() < 1)
 	EXECUTE PROCEDURE raise_error_on_num_modification();
+	
